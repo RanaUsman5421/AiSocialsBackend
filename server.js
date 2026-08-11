@@ -16,7 +16,7 @@ app.use(express.json());
 
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://stuck-amiable-liftoff.ngrok-free.dev'
+  'https://ai-socials-phi.vercel.app'
 ]
 
 app.use(
