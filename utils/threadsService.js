@@ -47,7 +47,7 @@ export async function exchangeShortTokenForLongToken(shortLivedToken) {
 }
 
 export async function verifyThreadsToken(threadsUserId, accessToken) {
-  const response = await axios.get(`${THREADS_GRAPH_BASE}/${threadsUserId}`, {
+  const response = await axios.get(`${THREADS_GRAPH_BASE}/me`, {
     params: {
       access_token: accessToken,
       fields: 'id',
@@ -65,7 +65,7 @@ export async function createThreadsContainer(threadsUserId, accessToken, mediaTy
   if (text) params.append('text', text);
   if (mediaType === 'IMAGE' && imageUrl) params.append('image_url', imageUrl);
 
-  const response = await axios.post(`${THREADS_GRAPH_BASE}/${threadsUserId}/threads`, params);
+  const response = await axios.post(`${THREADS_GRAPH_BASE}/me/threads`, params);
   return response.data;
 }
 
@@ -74,6 +74,6 @@ export async function publishThreadsContainer(threadsUserId, accessToken, creati
   params.append('creation_id', creationId);
   params.append('access_token', accessToken);
 
-  const response = await axios.post(`${THREADS_GRAPH_BASE}/${threadsUserId}/threads_publish`, params);
+  const response = await axios.post(`${THREADS_GRAPH_BASE}/me/threads_publish`, params);
   return response.data;
 }

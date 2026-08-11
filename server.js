@@ -15,6 +15,7 @@ connectDB();
 app.use(express.json());
 
 const allowedOrigins = [
+  'http://localhost:5173',
   'https://ai-socials-phi.vercel.app'
 ]
 
