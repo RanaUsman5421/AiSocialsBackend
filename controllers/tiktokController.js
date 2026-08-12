@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import TikTokAccount from '../models/TikTokAccount.js';
+import User from '../models/User.js';
 import {
   buildTikTokAuthUrl,
   exchangeCodeForTokens,
@@ -11,29 +11,29 @@ import {
 
 const TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
 
-async function ensureAccessToken(account) {
-  if (!account.accessToken || !account.expiresAt) {
+async function ensureAccessToken(user) {
+  if (!user.tiktok?.accessToken || !user.tiktok?.expiresAt) {
     throw new Error('TikTok access token is not available');
   }
 
-  if (account.expiresAt.getTime() - Date.now() > TOKEN_REFRESH_BUFFER_MS) {
-    return account.accessToken;
+  if (user.tiktok.expiresAt.getTime() - Date.now() > TOKEN_REFRESH_BUFFER_MS) {
+    return user.tiktok.accessToken;
   }
 
-  if (!account.refreshToken) {
+  if (!user.tiktok.refreshToken) {
     throw new Error('TikTok refresh token is not available');
   }
 
-  const refreshed = await refreshAccessToken(account.refreshToken);
+  const refreshed = await refreshAccessToken(user.tiktok.refreshToken);
   const expiresAt = new Date(Date.now() + refreshed.expires_in * 1000);
 
-  account.accessToken = refreshed.access_token;
-  account.refreshToken = refreshed.refresh_token || account.refreshToken;
-  account.expiresAt = expiresAt;
-  account.scope = refreshed.scope ? refreshed.scope.split(',') : account.scope;
-  await account.save();
+  user.tiktok.accessToken = refreshed.access_token;
+  user.tiktok.refreshToken = refreshed.refresh_token || user.tiktok.refreshToken;
+  user.tiktok.expiresAt = expiresAt;
+  user.tiktok.scope = refreshed.scope ? refreshed.scope.split(',') : user.tiktok.scope;
+  await user.save();
 
-  return account.accessToken;
+  return user.tiktok.accessToken;
 }
 
 function base64UrlEncode(buffer) {
@@ -54,15 +54,16 @@ export async function initiateAuth(req, res) {
   const codeVerifier = base64UrlEncode(crypto.randomBytes(32));
   const codeChallenge = base64UrlEncode(crypto.createHash('sha256').update(codeVerifier).digest());
 
-  await TikTokAccount.findOneAndUpdate(
-    { userId },
+  await User.findByIdAndUpdate(
+    userId,
     {
-      userId,
-      authState: state,
-      authStateExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
-      codeVerifier,
+      tiktok: {
+        authState: state,
+        authStateExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        codeVerifier,
+      },
     },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { new: true }
   );
 
   const authUrl = buildTikTokAuthUrl(state, codeChallenge);
@@ -80,28 +81,28 @@ export async function handleCallback(req, res) {
     return res.redirect(`${process.env.FRONTEND_URL}/socialaccounts?tiktok=error`);
   }
 
-  const account = await TikTokAccount.findOne({
-    authState: state,
-    authStateExpiresAt: { $gt: new Date() },
+  const user = await User.findOne({
+    'tiktok.authState': state,
+    'tiktok.authStateExpiresAt': { $gt: new Date() },
   });
 
-  if (!account || !account.codeVerifier) {
+  if (!user || !user.tiktok?.codeVerifier) {
     return res.redirect(`${process.env.FRONTEND_URL}/socialaccounts?tiktok=error`);
   }
 
   try {
-    const tokenData = await exchangeCodeForTokens(code, account.codeVerifier);
+    const tokenData = await exchangeCodeForTokens(code, user.tiktok.codeVerifier);
     const { access_token, refresh_token, expires_in, open_id, scope } = tokenData;
     const expiresAt = new Date(Date.now() + expires_in * 1000);
 
-    account.openId = open_id;
-    account.accessToken = access_token;
-    account.refreshToken = refresh_token;
-    account.expiresAt = expiresAt;
-    account.scope = scope ? scope.split(',') : [];
-    account.authState = undefined;
-    account.authStateExpiresAt = undefined;
-    await account.save();
+    user.tiktok.openId = open_id;
+    user.tiktok.accessToken = access_token;
+    user.tiktok.refreshToken = refresh_token;
+    user.tiktok.expiresAt = expiresAt;
+    user.tiktok.scope = scope ? scope.split(',') : [];
+    user.tiktok.authState = undefined;
+    user.tiktok.authStateExpiresAt = undefined;
+    await user.save();
 
     return res.redirect(`${process.env.FRONTEND_URL}/socialaccounts?tiktok=connected`);
   } catch (err) {
@@ -116,12 +117,12 @@ export async function verifyTikTok(req, res) {
     return res.status(400).json({ error: 'Missing userId' });
   }
 
-  const account = await TikTokAccount.findOne({ userId });
-  if (!account || !account.accessToken) {
+  const user = await User.findById(userId);
+  if (!user || !user.tiktok?.accessToken) {
     return res.status(404).json({ connected: false });
   }
 
-  return res.json({ connected: true, openId: account.openId, expiresAt: account.expiresAt });
+  return res.json({ connected: true, openId: user.tiktok.openId, expiresAt: user.tiktok.expiresAt });
 }
 
 export async function getCreatorInfo(req, res) {
@@ -130,13 +131,13 @@ export async function getCreatorInfo(req, res) {
     return res.status(400).json({ error: 'Missing userId' });
   }
 
-  const account = await TikTokAccount.findOne({ userId });
-  if (!account) {
+  const user = await User.findById(userId);
+  if (!user || !user.tiktok) {
     return res.status(404).json({ error: 'TikTok account not connected' });
   }
 
   try {
-    const accessToken = await ensureAccessToken(account);
+    const accessToken = await ensureAccessToken(user);
     const response = await queryCreatorInfo(accessToken);
     return res.json(response.data);
   } catch (error) {
@@ -151,13 +152,13 @@ export async function publishVideo(req, res) {
     return res.status(400).json({ error: 'Missing userId or videoUrl' });
   }
 
-  const account = await TikTokAccount.findOne({ userId });
-  if (!account) {
+  const user = await User.findById(userId);
+  if (!user || !user.tiktok) {
     return res.status(404).json({ error: 'TikTok account not connected' });
   }
 
   try {
-    const accessToken = await ensureAccessToken(account);
+    const accessToken = await ensureAccessToken(user);
     const postPayload = {
       post_info: {
         title: caption || '',
@@ -186,13 +187,13 @@ export async function getPostStatus(req, res) {
     return res.status(400).json({ error: 'Missing userId or publishId' });
   }
 
-  const account = await TikTokAccount.findOne({ userId });
-  if (!account) {
+  const user = await User.findById(userId);
+  if (!user || !user.tiktok) {
     return res.status(404).json({ error: 'TikTok account not connected' });
   }
 
   try {
-    const accessToken = await ensureAccessToken(account);
+    const accessToken = await ensureAccessToken(user);
     const response = await fetchPublishStatus(accessToken, publishId);
     return res.json(response.data);
   } catch (error) {

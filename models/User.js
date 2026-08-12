@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 
 const userSchema = mongoose.Schema({
-    name:{
+    name: {
         type: String,
         required: true
     },
-    email:{
+    email: {
         type: String,
         required: true,
         unique: true
@@ -44,11 +44,22 @@ const userSchema = mongoose.Schema({
         oauthState: { type: String },
         codeVerifier: { type: String },
         oauthStateExpiresAt: { type: Date }
+    },
+    tiktok: {
+        userId: { type: String },
+        openId: { type: String },
+        accessToken: { type: String },
+        refreshToken: { type: String },
+        expiresAt: { type: Date },
+        scope: [String],
+        authState: { type: String },
+        authStateExpiresAt: { type: Date },
+        codeVerifier: { type: String }
     }
 },
     {
         timestamps: true
-    } 
+    }
 )
 
 const User = mongoose.model("User", userSchema)
