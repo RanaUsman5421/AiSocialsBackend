@@ -57,10 +57,10 @@ export async function initiateAuth(req, res) {
   await User.findByIdAndUpdate(
     userId,
     {
-      tiktok: {
-        authState: state,
-        authStateExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
-        codeVerifier,
+      $set: {
+        'tiktok.authState': state,
+        'tiktok.authStateExpiresAt': new Date(Date.now() + 10 * 60 * 1000),
+        'tiktok.codeVerifier': codeVerifier,
       },
     },
     { new: true }
@@ -100,8 +100,8 @@ export async function handleCallback(req, res) {
     user.tiktok.refreshToken = refresh_token;
     user.tiktok.expiresAt = expiresAt;
     user.tiktok.scope = scope ? scope.split(',') : [];
-    user.tiktok.authState = undefined;
-    user.tiktok.authStateExpiresAt = undefined;
+    user.tiktok.authState = null;
+    user.tiktok.authStateExpiresAt = null;
     await user.save();
 
     return res.redirect(`${process.env.FRONTEND_URL}/socialaccounts?tiktok=connected`);
