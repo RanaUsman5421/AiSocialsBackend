@@ -33,6 +33,17 @@ const userSchema = mongoose.Schema({
         userId: { type: String },
         accessToken: { type: String },
         expiresAt: { type: Date }
+    },
+    x: {
+        userId: { type: String },
+        username: { type: String },
+        name: { type: String },
+        accessTokenEncrypted: { type: String },
+        refreshTokenEncrypted: { type: String },
+        expiresAt: { type: Date },
+        oauthState: { type: String },
+        codeVerifier: { type: String },
+        oauthStateExpiresAt: { type: Date }
     }
 },
     {

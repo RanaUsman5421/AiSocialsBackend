@@ -7,6 +7,7 @@ import usersRoute from './routes/usersRoute.js';
 import facebookRoutes from './routes/facebookRoutes.js';
 import instagramRoutes from './routes/instagramRoutes.js';
 import threadsRoutes from './routes/threadsRoutes.js';
+import xRoutes from './routes/xRoutes.js';
 import morgan from "morgan";
 const app = express();
 
@@ -37,6 +38,7 @@ app.use('/api', usersRoute);
 app.use('/api', facebookRoutes);
 app.use('/api', instagramRoutes);
 app.use('/api', threadsRoutes);
+app.use('/api', xRoutes);
 
 app.get('/', (req, res) => {
   res.send('Hello, World!');
