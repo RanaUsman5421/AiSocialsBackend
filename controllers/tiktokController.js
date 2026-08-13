@@ -159,10 +159,33 @@ export async function publishVideo(req, res) {
 
   try {
     const accessToken = await ensureAccessToken(user);
+
+    // Step 1: Query creator info to get allowed privacy options
+    let allowedPrivacyOptions = ['SELF_ONLY'];
+    try {
+      const creatorInfo = await queryCreatorInfo(accessToken);
+      if (creatorInfo.data?.data?.privacy_level_options) {
+        allowedPrivacyOptions = creatorInfo.data.data.privacy_level_options;
+        console.log('Allowed privacy options:', allowedPrivacyOptions);
+      }
+    } catch (creatorError) {
+      console.warn('Could not fetch creator info, using default privacy options:', creatorError.message);
+    }
+
+    // Step 2: Validate and set privacy level
+    const selectedPrivacy = privacyLevel || 'SELF_ONLY';
+    if (!allowedPrivacyOptions.includes(selectedPrivacy)) {
+      return res.status(400).json({
+        error: `Privacy level '${selectedPrivacy}' not allowed for this account`,
+        allowedOptions: allowedPrivacyOptions,
+      });
+    }
+
+    // Step 3: Build and send post payload with exact enum values
     const postPayload = {
       post_info: {
         title: caption || '',
-        privacy_level: privacyLevel || 'SELF_ONLY',
+        privacy_level: selectedPrivacy, // Exact string matching TikTok enum
         disable_comment: disableComment || false,
         disable_duet: disableDuet || false,
         disable_stitch: disableStitch || false,
@@ -172,6 +195,8 @@ export async function publishVideo(req, res) {
         video_url: videoUrl,
       },
     };
+
+    console.log('Publishing with payload:', JSON.stringify(postPayload, null, 2));
 
     const response = await initVideoPublish(accessToken, postPayload);
     return res.json({ success: true, publishId: response.data?.data?.publish_id });
