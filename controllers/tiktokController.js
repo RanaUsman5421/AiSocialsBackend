@@ -226,3 +226,36 @@ export async function getPostStatus(req, res) {
     return res.status(500).json({ error: error.response?.data || 'Failed to fetch status' });
   }
 }
+
+export async function disconnectTikTok(req, res) {
+  const { userId } = req.body;
+  if (!userId) {
+    return res.status(400).json({ error: 'Missing userId' });
+  }
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Clear all TikTok credentials
+    user.tiktok = {
+      userId: undefined,
+      openId: undefined,
+      accessToken: undefined,
+      refreshToken: undefined,
+      expiresAt: undefined,
+      scope: [],
+      authState: undefined,
+      authStateExpiresAt: undefined,
+      codeVerifier: undefined,
+    };
+
+    await user.save();
+    return res.json({ success: true, message: 'TikTok account disconnected successfully' });
+  } catch (error) {
+    console.error('Disconnect Error:', error.message);
+    return res.status(500).json({ error: 'Failed to disconnect TikTok account' });
+  }
+}
